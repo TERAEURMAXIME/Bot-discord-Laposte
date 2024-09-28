@@ -31,7 +31,7 @@ client.once('ready', async () => {
     // Définir le statut du bot
     client.user.setPresence({
         activities: [{ name: 'La Poste', type: ActivityType.Watching }],
-        status: 'dnd' // Définit le statut sur "Ne pas déranger"
+        status: 'online' // Définit le statut sur "en ligne"
     });
 
     const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -65,12 +65,24 @@ client.on('interactionCreate', async interaction => {
             });
 
             const shipment = response.data.shipment;
-            let suiviMessage = `Statut actuel du colis ${trackingNumber} : ${shipment.timeline[0].status}\nDernière mise à jour : ${shipment.timeline[0].date}\n`;
+            
+            // Récupérer le dernier statut et la dernière date
+            const latestEvent = shipment.timeline.find(event => event.status === true);
+            const status = latestEvent ? latestEvent.shortLabel : "Statut inconnu";
+            const lastUpdate = latestEvent && latestEvent.date ? latestEvent.date : "Non disponible";
 
+            // Message public (réponse concise)
+            let suiviMessage = `Statut actuel du colis ${trackingNumber} : **${status}**\nDernière mise à jour : **${lastUpdate}**`;
             await interaction.reply(suiviMessage);
 
-            // Envoyer les détails complets en DM
-            const fullDetails = `Détails complets pour le suivi ${trackingNumber} :\n${JSON.stringify(shipment, null, 2)}`;
+            // Détails complets envoyés en message privé
+            let fullDetails = `Historique des statuts de suivi pour le colis ${trackingNumber} :\n\n`;
+            shipment.timeline.forEach(event => {
+                fullDetails += `Date: ${event.date}\nStatut: ${event.shortLabel}\n\n`;
+            });
+
+            fullDetails += `\nLien pour plus d'informations : ${shipment.url}`;
+            
             await interaction.user.send(fullDetails);
         } catch (error) {
             console.error('Erreur lors de la récupération des informations de suivi :', error);
